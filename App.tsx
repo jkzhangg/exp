@@ -1,31 +1,17 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { View, Text, StyleSheet } from 'react-native';
+import { BottomTabNavigator } from './src/navigation/BottomTabNavigator';
+import { StatusBar } from 'react-native';
+import { Theme } from './src/constants/theme';
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <NavigationContainer>
-        <StatusBar style="auto" />
-        <View style={styles.container}>
-          <Text style={styles.text}>库存管理系统</Text>
-        </View>
-      </NavigationContainer>
-    </SafeAreaProvider>
+    <NavigationContainer>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={Theme.colors.background}
+      />
+      <BottomTabNavigator />
+    </NavigationContainer>
   );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  text: {
-    fontSize: 24,
-    color: '#000',
-  },
-}); 
+} 
