@@ -1,17 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TextInput, TouchableOpacity, Text, Alert } from 'react-native';
 import { BarcodeScanner as BarcodeScannerComponent } from '../components/scanner/BarcodeScanner';
 import { StorageService } from '../services/StorageService';
 import { generateId } from '../utils/helpers';
 import { Theme } from '../constants/theme';
+import { useIsFocused } from '@react-navigation/native';
 
 export const ScanScreen: React.FC = () => {
   const [scanned, setScanned] = useState(false);
   const [productId, setProductId] = useState('');
   const [quantity, setQuantity] = useState('1');
+  const isFocused = useIsFocused();
+
+  // 监听扫描状态变化
+  useEffect(() => {
+    console.log('[ScanScreen] 扫描状态变化', { scanned });
+  }, [scanned]);
 
   const handleBarCodeScanned = (data: string) => {
     if (scanned) return;
+    console.log('[ScanScreen] 处理扫描结果', { data });
     setScanned(true);
     setProductId(data);
   };
@@ -69,6 +77,10 @@ export const ScanScreen: React.FC = () => {
       Alert.alert('错误', '入库失败，请重试');
     }
   };
+
+  if (!isFocused) {
+    return (null);
+  }
 
   return (
     <View style={styles.container}>

@@ -8,60 +8,19 @@ import { BarcodeScannerProps } from './BarcodeScanner';
 const SCAN_AREA_WIDTH = Math.min(window.innerWidth * 0.8, 300);
 const SCAN_AREA_HEIGHT = SCAN_AREA_WIDTH / 1.5; // EAN-13 条形码的标准宽高比
 
-export function BarcodeScanner({ onScan, onError, isActive = false }: BarcodeScannerProps) {
+export function BarcodeScanner({ onScan, onError, isActive }: BarcodeScannerProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const readerRef = useRef<BrowserMultiFormatOneDReader | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
-    const isDecodingRef = useRef(false);
     const [hasPermission, setHasPermission] = useState<boolean | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [isPaused, setIsPaused] = useState(false);
     const lastResultRef = useRef<string | null>(null);
 
-    // 初始化扫描器
-    const initializeReader = useCallback(() => {
-        if (!readerRef.current) {
-            console.log('[BarcodeScanner] 创建扫描器实例');
-            readerRef.current = new BrowserMultiFormatOneDReader();
-        }
-    }, []);
-
-    // 暂停扫描
-    const pauseScanning = useCallback(() => {
-        console.log('[BarcodeScanner] 暂停扫描');
-        isDecodingRef.current = false;
-        setIsPaused(true);
+    // 停止视频流
+    const stopVideoStream = useCallback(() => {
         if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.enabled = false);
-        }
-    }, []);
-
-    // 恢复扫描
-    const resumeScanning = useCallback(() => {
-        console.log('[BarcodeScanner] 恢复扫描');
-        // 先重置状态
-        lastResultRef.current = null;
-        isDecodingRef.current = true;
-
-        // 确保视频流是开启的
-        if (streamRef.current) {
+            console.log('[BarcodeScanner] 停止视频流');
             streamRef.current.getTracks().forEach(track => {
-                track.enabled = true;
-            });
-        }
-
-        setIsPaused(false);
-    }, []);
-
-    // 清理资源
-    const cleanup = useCallback(() => {
-        console.log('[BarcodeScanner] 清理资源');
-        isDecodingRef.current = false;
-        lastResultRef.current = null;
-
-        if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => {
-                track.enabled = false;
                 track.stop();
             });
             streamRef.current = null;
@@ -69,41 +28,31 @@ export function BarcodeScanner({ onScan, onError, isActive = false }: BarcodeSca
         if (videoRef.current) {
             videoRef.current.srcObject = null;
         }
-        if (readerRef.current) {
-            readerRef.current = null;
-        }
-        setIsPaused(false);
     }, []);
+
+    // 清理所有资源
+    const cleanup = useCallback(() => {
+        console.log('[BarcodeScanner] 清理资源');
+        stopVideoStream();
+        readerRef.current = null;
+        lastResultRef.current = null;
+    }, [stopVideoStream]);
 
     // 处理扫描结果
     const handleScanResult = useCallback((result: Result) => {
-        if (!isDecodingRef.current) return;
-
         const format = result.getBarcodeFormat();
         const text = result.getText();
-
-        // 避免重复处理相同的结果
-        if (lastResultRef.current === text) {
-            return;
-        }
 
         if (format === BarcodeFormat.EAN_13 && /^\d{13}$/.test(text)) {
             console.log('[BarcodeScanner] 扫描到有效的 EAN-13:', text);
             lastResultRef.current = text;
-            pauseScanning();
             onScan(text);
-        } else {
-            console.warn('[BarcodeScanner] 无效的条形码或非 EAN-13 格式');
         }
-    }, [onScan, pauseScanning]);
+    }, [onScan]);
 
     // 初始化视频流
     const initializeVideo = useCallback(async () => {
         try {
-            if (!videoRef.current || !readerRef.current) {
-                throw new Error('视频元素未就绪');
-            }
-
             console.log('[BarcodeScanner] 请求视频流');
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: {
@@ -115,21 +64,13 @@ export function BarcodeScanner({ onScan, onError, isActive = false }: BarcodeSca
             });
 
             streamRef.current = stream;
-            videoRef.current.srcObject = stream;
 
-            // 等待视频加载完成后再开始扫描
-            await new Promise((resolve) => {
-                if (videoRef.current) {
-                    videoRef.current.onloadedmetadata = resolve;
-                }
-            });
-
-            isDecodingRef.current = true;
+            readerRef.current = new BrowserMultiFormatOneDReader();
             readerRef.current.decodeFromStream(
                 stream,
-                videoRef.current,
+                videoRef.current!,
                 (result: Result | undefined) => {
-                    if (result) {
+                    if (result && isActive) {
                         handleScanResult(result);
                     }
                 }
@@ -140,7 +81,14 @@ export function BarcodeScanner({ onScan, onError, isActive = false }: BarcodeSca
             onError?.(error instanceof Error ? error : new Error(String(error)));
             cleanup();
         }
-    }, [handleScanResult, cleanup, onError]);
+    }, [handleScanResult, cleanup, onError, isActive]);
+
+    // 启动扫描
+    const startScanning = useCallback(async () => {
+        console.log('[BarcodeScanner] 启动扫描');
+        lastResultRef.current = null;
+        await initializeVideo();
+    }, [initializeVideo]);
 
     // 请求摄像头权限
     const requestCameraPermission = useCallback(async () => {
@@ -156,29 +104,17 @@ export function BarcodeScanner({ onScan, onError, isActive = false }: BarcodeSca
         }
     }, []);
 
-    // 启动扫描
-    const startScanning = useCallback(async () => {
-        cleanup();
-        initializeReader();
-        await initializeVideo();
-    }, [cleanup, initializeReader, initializeVideo]);
+    useEffect(() => {
+        if (videoRef.current && hasPermission) {
+            startScanning();
+        }
+    }, [videoRef.current, hasPermission])
 
-    // 初始化权限
+    // 组件挂载和卸载
     useEffect(() => {
         requestCameraPermission();
-        return () => cleanup();
-    }, [requestCameraPermission, cleanup]);
-
-    // 监听扫描状态
-    useEffect(() => {
-        if (isActive && hasPermission) {
-            if (!isPaused) {
-                startScanning();
-            }
-        } else {
-            cleanup();
-        }
-    }, [isActive, hasPermission, isPaused, startScanning, cleanup]);
+        return cleanup;
+    }, [cleanup, requestCameraPermission]);
 
     if (error) {
         return (
@@ -237,7 +173,7 @@ export function BarcodeScanner({ onScan, onError, isActive = false }: BarcodeSca
                         <View style={styles.guideLine} />
                     </View>
                     <Text style={styles.tipText}>
-                        请将条形码对准扫描框
+                        {!isActive ? '点击重试按钮重新扫描' : '请将条形码对准扫描框'}
                     </Text>
                 </View>
             </View>

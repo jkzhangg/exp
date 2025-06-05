@@ -23,6 +23,27 @@ export const BottomTabNavigator = () => {
         },
         headerTintColor: Theme.colors.text,
       }}
+      screenListeners={{
+        state: (e) => {
+          console.log('[Navigation] 导航状态变化', {
+            type: e.type,
+            currentRoute: e.data?.state?.routes[e.data?.state?.index],
+            timestamp: new Date().toISOString()
+          });
+        },
+        focus: (e) => {
+          console.log('[Navigation] 页面获得焦点', {
+            target: e.target,
+            timestamp: new Date().toISOString()
+          });
+        },
+        blur: (e) => {
+          console.log('[Navigation] 页面失去焦点', {
+            target: e.target,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }}
     >
       <Tab.Screen
         name="Home"
@@ -32,6 +53,14 @@ export const BottomTabNavigator = () => {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="list" size={size} color={color} />
           ),
+        }}
+        listeners={{
+          focus: () => {
+            console.log('[Navigation] 库存页面获得焦点');
+          },
+          blur: () => {
+            console.log('[Navigation] 库存页面失去焦点');
+          }
         }}
       />
       <Tab.Screen
@@ -43,6 +72,14 @@ export const BottomTabNavigator = () => {
             <Ionicons name="scan" size={size} color={color} />
           ),
         }}
+        listeners={{
+          focus: () => {
+            console.log('[Navigation] 扫描页面获得焦点');
+          },
+          blur: () => {
+            console.log('[Navigation] 扫描页面失去焦点');
+          }
+        }}
       />
       <Tab.Screen
         name="Settings"
@@ -52,6 +89,14 @@ export const BottomTabNavigator = () => {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings" size={size} color={color} />
           ),
+        }}
+        listeners={{
+          focus: () => {
+            console.log('[Navigation] 设置页面获得焦点');
+          },
+          blur: () => {
+            console.log('[Navigation] 设置页面失去焦点');
+          }
         }}
       />
     </Tab.Navigator>
