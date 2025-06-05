@@ -28,33 +28,37 @@ export function BarcodeScanner({ onScan, onError, isActive = false }: BarcodeSca
 
     // 暂停扫描
     const pauseScanning = useCallback(() => {
-        if (!isPaused) {
-            console.log('[BarcodeScanner] 暂停扫描');
-            isDecodingRef.current = false;
-            setIsPaused(true);
-            if (streamRef.current) {
-                streamRef.current.getTracks().forEach(track => track.enabled = false);
-            }
+        console.log('[BarcodeScanner] 暂停扫描');
+        isDecodingRef.current = false;
+        setIsPaused(true);
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.enabled = false);
         }
-    }, [isPaused]);
+    }, []);
 
     // 恢复扫描
     const resumeScanning = useCallback(() => {
-        if (isPaused) {
-            console.log('[BarcodeScanner] 恢复扫描');
-            isDecodingRef.current = true;
-            setIsPaused(false);
-            lastResultRef.current = null;
-            if (streamRef.current) {
-                streamRef.current.getTracks().forEach(track => track.enabled = true);
-            }
+        console.log('[BarcodeScanner] 恢复扫描');
+        // 先重置状态
+        lastResultRef.current = null;
+        isDecodingRef.current = true;
+
+        // 确保视频流是开启的
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => {
+                track.enabled = true;
+            });
         }
-    }, [isPaused]);
+
+        setIsPaused(false);
+    }, []);
 
     // 清理资源
     const cleanup = useCallback(() => {
         console.log('[BarcodeScanner] 清理资源');
         isDecodingRef.current = false;
+        lastResultRef.current = null;
+
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => {
                 track.enabled = false;
@@ -68,7 +72,6 @@ export function BarcodeScanner({ onScan, onError, isActive = false }: BarcodeSca
         if (readerRef.current) {
             readerRef.current = null;
         }
-        lastResultRef.current = null;
         setIsPaused(false);
     }, []);
 
@@ -113,8 +116,15 @@ export function BarcodeScanner({ onScan, onError, isActive = false }: BarcodeSca
 
             streamRef.current = stream;
             videoRef.current.srcObject = stream;
-            isDecodingRef.current = true;
 
+            // 等待视频加载完成后再开始扫描
+            await new Promise((resolve) => {
+                if (videoRef.current) {
+                    videoRef.current.onloadedmetadata = resolve;
+                }
+            });
+
+            isDecodingRef.current = true;
             readerRef.current.decodeFromStream(
                 stream,
                 videoRef.current,
@@ -162,15 +172,13 @@ export function BarcodeScanner({ onScan, onError, isActive = false }: BarcodeSca
     // 监听扫描状态
     useEffect(() => {
         if (isActive && hasPermission) {
-            if (isPaused) {
-                resumeScanning();
-            } else {
+            if (!isPaused) {
                 startScanning();
             }
         } else {
             cleanup();
         }
-    }, [isActive, hasPermission, isPaused, startScanning, resumeScanning, cleanup]);
+    }, [isActive, hasPermission, isPaused, startScanning, cleanup]);
 
     if (error) {
         return (
