@@ -1,29 +1,38 @@
 {
   "expo": {
-    "name": "inventory-tracker",
-    "slug": "inventory-tracker",
+    "name": "exp",
+    "slug": "exp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.exp",
+      "infoPlist": {
+        "NSCameraUsageDescription": "需要使用相机来扫描条码",
+        "NSMicrophoneUsageDescription": "需要使用麦克风来扫描条码"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "permissions": [
+        "CAMERA"
+      ],
+      "package": "com.anonymous.exp"
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    }
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "需要使用相机来扫描条码",
+          "microphonePermission": "需要使用麦克风来扫描条码"
+        }
+      ]
+    ]
   }
 }

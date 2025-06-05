@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { Platform, StyleSheet, View, Text } from 'react-native';
-import { Camera, CameraType } from 'expo-camera';
-import { BarCodeScanner } from 'expo-barcode-scanner';
+import React, { useState } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
 import { WebBarcodeScanner } from './WebBarcodeScanner';
+import { NativeBarcodeScanner } from './NativeBarcodeScanner';
 import { Theme } from '../constants/theme';
 
 interface BarcodeScannerProps {
@@ -11,35 +10,24 @@ interface BarcodeScannerProps {
   isActive?: boolean;
 }
 
-const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
+export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   onScan,
   onError,
   isActive = false,
 }) => {
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isScanning, setIsScanning] = useState(isActive);
 
-  useEffect(() => {
+  React.useEffect(() => {
     setIsScanning(isActive);
   }, [isActive]);
 
-  useEffect(() => {
-    if (Platform.OS !== 'web') {
-      (async () => {
-        try {
-          const { status } = await Camera.requestCameraPermissionsAsync();
-          setHasPermission(status === 'granted');
-        } catch (error) {
-          console.error('相机权限请求失败:', error);
-          onError?.(error as Error);
-          setHasPermission(false);
-        }
-      })();
-    }
-  }, [onError]);
-
   const handleScan = (data: string) => {
-    onScan(data);
+    try {
+      onScan(data);
+    } catch (error) {
+      console.error('扫描处理错误:', error);
+      onError?.(error instanceof Error ? error : new Error('扫描处理失败'));
+    }
   };
 
   const handleError = (error: Error) => {
@@ -47,22 +35,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     onError?.(error);
   };
 
-  if (hasPermission === null && Platform.OS !== 'web') {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.text}>请求相机权限中...</Text>
-      </View>
-    );
-  }
-
-  if (hasPermission === false && Platform.OS !== 'web') {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.text}>无相机访问权限</Text>
-      </View>
-    );
-  }
-
+  // Web 平台使用 WebBarcodeScanner
   if (Platform.OS === 'web') {
     return (
       <View style={styles.container}>
@@ -75,24 +48,13 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     );
   }
 
+  // 移动端使用 NativeBarcodeScanner
   return (
     <View style={styles.container}>
-      <Camera
-        style={StyleSheet.absoluteFill}
-        type={CameraType.back}
-        barCodeScannerSettings={{
-          barCodeTypes: [
-            BarCodeScanner.Constants.BarCodeType.ean13,
-            BarCodeScanner.Constants.BarCodeType.ean8,
-            BarCodeScanner.Constants.BarCodeType.upc_e,
-            BarCodeScanner.Constants.BarCodeType.upc_a,
-          ],
-        }}
-        onBarCodeScanned={
-          isScanning
-            ? (result) => handleScan(result.data)
-            : undefined
-        }
+      <NativeBarcodeScanner
+        isScanning={isScanning}
+        onScan={handleScan}
+        onError={handleError}
       />
     </View>
   );
@@ -103,11 +65,4 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.background,
   },
-  text: {
-    color: Theme.colors.text,
-    fontSize: Theme.typography.body,
-    textAlign: 'center',
-  },
-});
-
-export { BarcodeScanner }; 
+}); 

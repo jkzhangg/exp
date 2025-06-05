@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { StyleSheet, View, Platform, Text, TouchableOpacity, Dimensions } from 'react-native';
-import { BrowserMultiFormatOneDReader } from '@zxing/browser';
-import { Result, BarcodeFormat } from '@zxing/library';
+import { BrowserMultiFormatOneDReader, IScannerControls } from '@zxing/browser';
+import { Result, BarcodeFormat, Exception } from '@zxing/library';
 import { Theme } from '../constants/theme';
 
 interface WebBarcodeScannerProps {
@@ -107,7 +107,7 @@ const WebBarcodeScanner: React.FC<WebBarcodeScannerProps> = ({
         audio: false
       });
 
-      readerRef.current.decodeFromStream(stream, videoRef.current, (result: Result | null) => {
+      readerRef.current.decodeFromStream(stream, videoRef.current, (result: Result | undefined, error: Exception | undefined, controls: IScannerControls) => {
         console.log(result);
         if(result) {
           handleScanResult(result);
