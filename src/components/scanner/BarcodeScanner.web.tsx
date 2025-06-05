@@ -12,8 +12,11 @@ export function BarcodeScanner({ onScan, onError, isActive = false }: BarcodeSca
     const videoRef = useRef<HTMLVideoElement>(null);
     const readerRef = useRef<BrowserMultiFormatOneDReader | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
+    const isDecodingRef = useRef(false);
     const [hasPermission, setHasPermission] = useState<boolean | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [isPaused, setIsPaused] = useState(false);
+    const lastResultRef = useRef<string | null>(null);
 
     // 初始化扫描器
     const initializeReader = useCallback(() => {
@@ -23,11 +26,40 @@ export function BarcodeScanner({ onScan, onError, isActive = false }: BarcodeSca
         }
     }, []);
 
+    // 暂停扫描
+    const pauseScanning = useCallback(() => {
+        if (!isPaused) {
+            console.log('[BarcodeScanner] 暂停扫描');
+            isDecodingRef.current = false;
+            setIsPaused(true);
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.enabled = false);
+            }
+        }
+    }, [isPaused]);
+
+    // 恢复扫描
+    const resumeScanning = useCallback(() => {
+        if (isPaused) {
+            console.log('[BarcodeScanner] 恢复扫描');
+            isDecodingRef.current = true;
+            setIsPaused(false);
+            lastResultRef.current = null;
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.enabled = true);
+            }
+        }
+    }, [isPaused]);
+
     // 清理资源
     const cleanup = useCallback(() => {
         console.log('[BarcodeScanner] 清理资源');
+        isDecodingRef.current = false;
         if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current.getTracks().forEach(track => {
+                track.enabled = false;
+                track.stop();
+            });
             streamRef.current = null;
         }
         if (videoRef.current) {
@@ -36,20 +68,31 @@ export function BarcodeScanner({ onScan, onError, isActive = false }: BarcodeSca
         if (readerRef.current) {
             readerRef.current = null;
         }
+        lastResultRef.current = null;
+        setIsPaused(false);
     }, []);
 
     // 处理扫描结果
     const handleScanResult = useCallback((result: Result) => {
+        if (!isDecodingRef.current) return;
+
         const format = result.getBarcodeFormat();
         const text = result.getText();
 
+        // 避免重复处理相同的结果
+        if (lastResultRef.current === text) {
+            return;
+        }
+
         if (format === BarcodeFormat.EAN_13 && /^\d{13}$/.test(text)) {
             console.log('[BarcodeScanner] 扫描到有效的 EAN-13:', text);
+            lastResultRef.current = text;
+            pauseScanning();
             onScan(text);
         } else {
             console.warn('[BarcodeScanner] 无效的条形码或非 EAN-13 格式');
         }
-    }, [onScan]);
+    }, [onScan, pauseScanning]);
 
     // 初始化视频流
     const initializeVideo = useCallback(async () => {
@@ -70,6 +113,7 @@ export function BarcodeScanner({ onScan, onError, isActive = false }: BarcodeSca
 
             streamRef.current = stream;
             videoRef.current.srcObject = stream;
+            isDecodingRef.current = true;
 
             readerRef.current.decodeFromStream(
                 stream,
@@ -104,24 +148,29 @@ export function BarcodeScanner({ onScan, onError, isActive = false }: BarcodeSca
 
     // 启动扫描
     const startScanning = useCallback(async () => {
+        cleanup();
         initializeReader();
         await initializeVideo();
-    }, [initializeReader, initializeVideo]);
+    }, [cleanup, initializeReader, initializeVideo]);
 
     // 初始化权限
     useEffect(() => {
         requestCameraPermission();
-        return cleanup;
+        return () => cleanup();
     }, [requestCameraPermission, cleanup]);
 
     // 监听扫描状态
     useEffect(() => {
         if (isActive && hasPermission) {
-            startScanning();
+            if (isPaused) {
+                resumeScanning();
+            } else {
+                startScanning();
+            }
         } else {
             cleanup();
         }
-    }, [isActive, hasPermission, startScanning, cleanup]);
+    }, [isActive, hasPermission, isPaused, startScanning, resumeScanning, cleanup]);
 
     if (error) {
         return (

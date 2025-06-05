@@ -22,12 +22,12 @@ module.exports = async function (env, argv) {
     return true;
   });
 
-  // 禁用源码映射警告
-  config.module.rules.forEach(rule => {
-    if (rule.use && rule.use.some(use => use.loader === 'source-map-loader')) {
-      rule.exclude = /node_modules\/@zxing/;
+  // 添加 source-map-loader 忽略规则
+  config.ignoreWarnings = [
+    {
+      module: /node_modules\/@zxing\/browser/,
     }
-  });
+  ];
 
   // 设置 process.env.NODE_ENV
   process.env.NODE_ENV = env.mode === 'production' ? 'production' : 'development';
