@@ -14,7 +14,7 @@ interface BarcodeScannerProps {
 const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   onScan,
   onError,
-  isActive = true,
+  isActive = false,
 }) => {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isScanning, setIsScanning] = useState(isActive);
@@ -39,9 +39,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   }, [onError]);
 
   const handleScan = (data: string) => {
-    if (isScanning) {
-      onScan(data);
-    }
+    onScan(data);
   };
 
   const handleError = (error: Error) => {
