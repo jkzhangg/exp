@@ -1,6 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { HomeScreen } from '../screens/HomeScreen';
+import { InventoryScreen } from '../screens/InventoryScreen';
 import { ScanScreen } from '../screens/ScanScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { Theme } from '../constants/theme';
@@ -46,8 +46,8 @@ export const BottomTabNavigator = () => {
       }}
     >
       <Tab.Screen
-        name="Home"
-        component={HomeScreen}
+        name="Inventory"
+        component={InventoryScreen}
         options={{
           title: '库存',
           tabBarIcon: ({ color, size }) => (

@@ -1,11 +1,7 @@
-export interface Product {
-  id: string;
-  name: string;
+import { Product as BaseProduct } from './models';
+
+export interface Product extends BaseProduct {
   barcode: string;
-  description?: string;
-  category?: string;
-  createdAt: number;
-  updatedAt: number;
 }
 
 export interface InventoryRecord {

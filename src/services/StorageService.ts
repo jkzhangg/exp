@@ -3,10 +3,10 @@ import { Product, InventoryRecord } from '../types/models';
 import { getAvailableStorage } from '../utils/helpers';
 
 const STORAGE_KEYS = {
-  PRODUCTS: 'products',
-  INVENTORY_RECORDS: 'inventory_records',
-  BACKUP: 'backup',
-  LAST_BACKUP_DATE: 'last_backup_date'
+  PRODUCTS: '@inventory:products',
+  INVENTORY_RECORDS: '@inventory:records',
+  BACKUP: '@inventory:backup',
+  LAST_BACKUP_DATE: '@inventory:last_backup_date'
 };
 
 // 最小可用存储空间（10MB）
@@ -76,6 +76,20 @@ export class StorageService {
   }
 
   /**
+   * 删除商品
+   */
+  static async deleteProduct(productId: string): Promise<void> {
+    try {
+      const products = await this.getAllProducts();
+      const updatedProducts = products.filter(product => product.id !== productId);
+      await AsyncStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(updatedProducts));
+    } catch (error) {
+      console.error('删除商品失败:', error);
+      throw new Error('删除商品失败');
+    }
+  }
+
+  /**
    * 获取所有商品
    */
   static async getAllProducts(): Promise<Product[]> {
@@ -84,7 +98,7 @@ export class StorageService {
       return data ? JSON.parse(data) : [];
     } catch (error) {
       console.error('获取所有商品失败:', error);
-      throw new Error('获取所有商品失败');
+      return [];
     }
   }
 
@@ -116,7 +130,24 @@ export class StorageService {
       return data ? JSON.parse(data) : [];
     } catch (error) {
       console.error('获取库存记录失败:', error);
-      throw new Error('获取库存记录失败');
+      return [];
+    }
+  }
+
+  /**
+   * 获取商品当前库存
+   */
+  static async getProductStock(productId: string): Promise<number> {
+    try {
+      const records = await this.getInventoryRecords();
+      const productRecords = records.filter(record => record.productId === productId);
+      
+      return productRecords.reduce((total, record) => {
+        return total + (record.type === 'in' ? record.quantity : -record.quantity);
+      }, 0);
+    } catch (error) {
+      console.error('计算商品库存失败:', error);
+      return 0;
     }
   }
 
@@ -226,5 +257,73 @@ export class StorageService {
     const hoursDiff = timeDiff / (1000 * 60 * 60);
 
     return hoursDiff >= 24;
+  }
+
+  /**
+   * 验证商品数据
+   */
+  static validateProduct(product: Product): boolean {
+    if (!product.id || typeof product.id !== 'string') {
+      throw new Error('商品ID无效');
+    }
+    
+    if (product.quantity < 0) {
+      throw new Error('商品数量不能为负数');
+    }
+    
+    if (product.createdAt && !(product.createdAt instanceof Date)) {
+      throw new Error('创建时间格式无效');
+    }
+    
+    return true;
+  }
+
+  /**
+   * 批量保存商品
+   */
+  static async batchSaveProducts(products: Product[]): Promise<void> {
+    // 检查存储空间
+    if (!(await this.checkStorageSpace())) {
+      throw new Error('存储空间不足');
+    }
+
+    try {
+      // 验证所有商品数据
+      products.forEach(this.validateProduct);
+      
+      const existingProducts = await this.getAllProducts();
+      const updatedProducts = [...existingProducts];
+      
+      for (const product of products) {
+        const index = updatedProducts.findIndex(p => p.id === product.id);
+        if (index >= 0) {
+          updatedProducts[index] = product;
+        } else {
+          updatedProducts.push(product);
+        }
+      }
+      
+      await AsyncStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(updatedProducts));
+    } catch (error) {
+      console.error('批量保存失败:', error);
+      throw new Error('批量保存失败');
+    }
+  }
+
+  /**
+   * 清除所有数据
+   */
+  static async clearAllData(): Promise<void> {
+    try {
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.PRODUCTS,
+        STORAGE_KEYS.INVENTORY_RECORDS,
+        STORAGE_KEYS.BACKUP,
+        STORAGE_KEYS.LAST_BACKUP_DATE
+      ]);
+    } catch (error) {
+      console.error('清除数据失败:', error);
+      throw new Error('清除数据失败');
+    }
   }
 } 
